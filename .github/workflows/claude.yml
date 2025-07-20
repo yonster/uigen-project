@@ -1,4 +1,4 @@
-name: Claude Code
+name: Claude PR Assistant
 
 on:
   issue_comment:
@@ -11,54 +11,53 @@ on:
     types: [submitted]
 
 jobs:
-  claude:
+  claude-code-action:
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      (github.event_name == 'issues' && contains(github.event.issue.body, '@claude'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
       issues: read
       id-token: write
-      actions: read # Required for Claude to read CI results on PRs
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Run Claude Code
-        id: claude
+      - name: Project setup
+        run: |
+          npm run setup
+          npm run dev:daemon
+          
+      - name: Run Claude PR Action
         uses: anthropics/claude-code-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
 
-          # This is an optional setting that allows Claude to read CI results on PRs
-          additional_permissions: |
-            actions: read
-          
-          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
-          # model: "claude-opus-4-20250514"
-          
-          # Optional: Customize the trigger phrase (default: @claude)
-          # trigger_phrase: "/claude"
-          
-          # Optional: Trigger when specific user is assigned to an issue
-          # assignee_trigger: "claude-bot"
-          
-          # Optional: Allow Claude to run specific commands
-          # allowed_tools: "Bash(npm install),Bash(npm run build),Bash(npm run test:*),Bash(npm run lint:*)"
-          
-          # Optional: Add custom instructions for Claude to customize its behavior for your project
-          # custom_instructions: |
-          #   Follow our coding standards
-          #   Ensure all new code has tests
-          #   Use TypeScript for new files
-          
-          # Optional: Custom environment variables for Claude
-          # claude_env: |
-          #   NODE_ENV: test
+          custom-instructions: |
+            The project is already set up with all dependencies installed.
+            The server is already running at localhost:3000. Logs from it
+            are beign written to logs. txt. If needed, you can query the db
+            with the 'sqlite3' cli. If needed, use the mcp_playwright
+            set of tools to launch a browser and interact with the app.
 
+          mcp-config: |
+            {
+              "mcpServers": {
+                "playwright": {
+                  "command": "прх",
+                  "args": [
+                    "@playwright/mcp@latest",
+                    "--allowed-origins",
+                    "localhost: 3000; cdn.tailwindcss.com;esm.sh"
+                  ]
+                }
+              }
+            }
+
+          allowed_tools: "Bash (npm:*), Bash (sqlite3:*), mcp__playwright__browser_snapshot, mcp__playwright__browser_click, mcp__playwright__browser_fill, mcp__playwright__browser_goto, mcp__playwright__browser_screenshot, mcp__playwright__browser_wait_for_selector, mcp__playwright__browser_wait_for_timeout, mcp__playwright__browser_wait_for_navigation, mcp__playwright__browser_wait_for_event, mcp__playwright__browser_get_text_content, mcp__playwright__browser_get_attribute, mcp__playwright__browser_get_inner_html, mcp__playwright__browser_get_outer_html, mcp__playwright__browser_get_element_by_selector, mcp__playwright__browser_get_elements_by_selector, mcp__playwright__browser_click_element, mcp__playwright__browser_type_text, mcp__playwright__browser_select_option, mcp__playwright__browser_upload_file, mcp__playwright__browser_drag_and_drop, mcp__playwright__browser_get_page_source, mcp__playwright__browser_get_page_title, mcp__playwright__browser_get_page_url, mcp__playwright__browser_get_page_cookies, mcp__playwright__browser_set_page_cookie, mcp__playwright__browser_clear_page_cookies, mcp__playwright__browser_execute_script"
